@@ -2,7 +2,7 @@ import os
 import json
 import joblib
 import pandas as pd
-
+from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.preprocessing import StandardScaler
@@ -25,10 +25,9 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # Experiment 7: Random Forest Data Split Strategy
-# Experiment: Lasso Regression
 pipeline = Pipeline([
     ("scaler", StandardScaler()),
-    ("model", LinearRegression())
+    ("model", SVR(kernel="rbf"))
 ])
 
 
