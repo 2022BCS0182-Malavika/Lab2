@@ -28,8 +28,8 @@ jobs:
       - name: Job Summary
         run: |
           echo "## Experiment Results" >> $GITHUB_STEP_SUMMARY
-          echo "**Name:** Pranathi Mantri" >> $GITHUB_STEP_SUMMARY
-          echo "**Roll No:** 2022BCS0025" >> $GITHUB_STEP_SUMMARY
+          echo "**Name:** BADAM MALAVIKA" >> $GITHUB_STEP_SUMMARY
+          echo "**Roll No:** 2022BCS0182" >> $GITHUB_STEP_SUMMARY
           cat output/results.json >> $GITHUB_STEP_SUMMARY
 
       - name: Upload artifacts
