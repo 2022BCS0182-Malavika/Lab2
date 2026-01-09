@@ -25,10 +25,11 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # Experiment 7: Random Forest Data Split Strategy
-pipeline = RandomForestRegressor(
-    n_estimators=100,
-    random_state=42
-)
+# Experiment: Lasso Regression
+pipeline = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", Lasso(alpha=0.1))
+])
 
 
 # Train model
