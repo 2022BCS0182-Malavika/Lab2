@@ -2,6 +2,7 @@ import os
 import json
 import joblib
 import pandas as pd
+import numpy as np
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
@@ -17,12 +18,18 @@ X = df.drop("quality", axis=1)
 y = df["quality"]
 
 # -----------------------
-# EXP-06: Random Forest – 100 trees, max depth=15
+# EXP-07: Random Forest with selected features
 # -----------------------
+
+# Correlation-based feature selection
+corr_matrix = X.corr().abs()
+upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+to_drop = [column for column in upper.columns if any(upper[column] > 0.9)]
+X_selected = X.drop(columns=to_drop)
 
 # Train-test split
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+    X_selected, y, test_size=0.2, random_state=42
 )
 
 # Model
@@ -47,7 +54,7 @@ print("MSE:", mse)
 print("R2 Score:", r2)
 
 # Save model
-joblib.dump(pipeline, "output/model_EXP-06.pkl")
+joblib.dump(pipeline, "output/model_EXP-07.pkl")
 
 # Save metrics
 results = {
@@ -55,5 +62,5 @@ results = {
     "r2_score": r2
 }
 
-with open("output/results_EXP-06.json", "w") as f:
+with open("output/results_EXP-07.json", "w") as f:
     json.dump(results, f, indent=4)
