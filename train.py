@@ -16,23 +16,24 @@ df = pd.read_csv("dataset/winequality-red.csv", sep=";")
 X = df.drop("quality", axis=1)
 y = df["quality"]
 
-# Train-test split
+# Train-test split (70-30)
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.3, random_state=42
 )
 
 # Experiment name
-experiment_name = "Model-RandomForest, Data Split Strategy"
+experiment_name = "ML Training – Model-RandomForest, n_estimators=200, max_depth=10 #7"
 
 print(f"=== {experiment_name} ===")
 
-# Model
+# Random Forest model with custom parameters
 model = RandomForestRegressor(
-    n_estimators=100,
+    n_estimators=200,
+    max_depth=10,
     random_state=42
 )
 
-# Train
+# Train model
 model.fit(X_train, y_train)
 
 # Predict
@@ -42,7 +43,7 @@ y_pred = model.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
-# Print metrics (for GitHub Actions logs)
+# Print metrics (for logs)
 print("MSE:", mse)
 print("R2 Score:", r2)
 
@@ -59,7 +60,7 @@ results = {
 with open("output/results.json", "w") as f:
     json.dump(results, f, indent=4)
 
-# GitHub Actions Job Summary
+# GitHub Actions Summary
 summary = f"""
 ## Experiment Results
 
@@ -68,7 +69,6 @@ summary = f"""
 **R² Score:** {r2:.4f}  
 """
 
-# Write to GitHub Actions summary
 summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
 if summary_file:
     with open(summary_file, "a") as f:
