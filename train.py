@@ -16,22 +16,23 @@ os.makedirs("output", exist_ok=True)
 # Load dataset
 df = pd.read_csv("dataset/winequality-red.csv", sep=";")
 
-X = df.drop("quality", axis=1)
+selected_features = [
+    "alcohol", "sulphates", "pH", "volatile acidity"
+]
+
+X_subset = df[selected_features]
 y = df["quality"]
 
 # Train-test split
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+    X_subset, y, test_size=0.2, random_state=42
 )
 
-# Experiment 4: Random Forest Hyperparameter changes
+# Experiment 6: Random Forest Feature Subset Selection
 pipeline = RandomForestRegressor(
-    n_estimators=200,
-    max_depth=10,
+    n_estimators=100,
     random_state=42
 )
-
-
 
 # Train model
 pipeline.fit(X_train, y_train)
