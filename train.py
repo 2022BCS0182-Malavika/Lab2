@@ -26,8 +26,11 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 # Experiment 7: Random Forest Data Split Strategy
 # Experiment 1: Linear Regression Default
-pipeline = LinearRegression()
-
+# Experiment 2: Linear Regression + Standardization
+pipeline = Pipeline([
+    ("scaler", StandardScaler()),  # Standardization
+    ("model", LinearRegression())
+])
 
 # Train model
 pipeline.fit(X_train, y_train)
