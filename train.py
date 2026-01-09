@@ -28,7 +28,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 # Experiment: Lasso Regression
 pipeline = Pipeline([
     ("scaler", StandardScaler()),
-    ("model", Lasso(alpha=0.1))
+    ("model", LinearRegression())
 ])
 
 
