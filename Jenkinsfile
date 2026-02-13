@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "2022bcs0182-malavika/ml-model"
+        DOCKER_IMAGE = "2022bcs0182malavika/ml-model"
     }
 
     stages {
