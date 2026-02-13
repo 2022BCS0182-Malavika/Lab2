@@ -56,11 +56,9 @@ print("R2 Score:", r2)
 # Save model
 joblib.dump(pipeline, "output/model_EXP-07.pkl")
 
-# Save metrics
 results = {
-    "mse": mse,
-    "r2_score": r2
+    "accuracy": float(r2)
 }
 
-with open("output/results_EXP-07.json", "w") as f:
+with open("output/results.json", "w") as f:
     json.dump(results, f, indent=4)
