@@ -1,98 +1,66 @@
-pipeline {
-    agent any
+node {
 
-    environment {
-        DOCKER_IMAGE = "2022bcs0182malavika/ml-model"
+    def DOCKER_IMAGE = "2022bcs0182malavika/ml-model"
+    def CURRENT_ACCURACY = 0.0
+    def IS_BETTER = false
+
+    stage('Checkout') {
+        checkout scm
     }
 
-    stages {
+    stage('Setup Python Virtual Environment') {
+        sh '''
+        python3 -m venv venv
+        . venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        '''
+    }
 
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
+    stage('Train Model') {
+        sh '''
+        . venv/bin/activate
+        python train.py
+        '''
+    }
+
+    stage('Read Accuracy') {
+        def metrics = readJSON file: 'output/results.json'
+        CURRENT_ACCURACY = metrics.accuracy as Double
+        echo "Current Accuracy: ${CURRENT_ACCURACY}"
+    }
+
+    stage('Compare Accuracy') {
+        def baseline = 0.0
+        withCredentials([string(credentialsId: 'best-accuracy', variable: 'BEST_ACC')]) {
+            baseline = BEST_ACC ? (BEST_ACC as Double) : 0.0
         }
 
-        stage('Setup Python Virtual Environment') {
-            steps {
-                sh '''
-                python3 -m venv venv
-                . venv/bin/activate
-                pip install --upgrade pip
-                pip install -r requirements.txt
-                '''
-            }
+        echo "Baseline Accuracy: ${baseline}"
+
+        if (CURRENT_ACCURACY > baseline) {
+            IS_BETTER = true
+            echo "New model is better."
+        } else {
+            echo "New model is NOT better."
         }
+    }
 
-        stage('Train Model') {
-            steps {
-                sh '''
-                . venv/bin/activate
-                python train.py
-                '''
-            }
-        }
-
-        stage('Read Accuracy') {
-            steps {
-                script {
-                    def metrics = readJSON file: 'output/results.json'
-                    env.CURRENT_ACCURACY = metrics.accuracy.toString()
-                    echo "Current Accuracy: ${env.CURRENT_ACCURACY}"
-                }
-            }
-        }
-
-        stage('Compare Accuracy') {
-            steps {
-                script {
-                    def baseline = ""
-                    withCredentials([string(credentialsId: 'best-accuracy', variable: 'BEST_ACC')]) {
-                        baseline = BEST_ACC
-                    }
-
-                    echo "Baseline Accuracy: ${baseline}"
-
-                    if (env.CURRENT_ACCURACY.toFloat() > baseline.toFloat()) {
-                        env.IS_BETTER = "true"
-                        echo "New model is better."
-                    } else {
-                        env.IS_BETTER = "false"
-                        echo "New model is NOT better."
-                    }
-                }
-            }
-        }
+    if (IS_BETTER) {
 
         stage('Build Docker Image') {
-            when {
-                expression { env.IS_BETTER == "true" }
-            }
-            steps {
-                script {
-                    docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
-                }
-            }
+            docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
         }
 
         stage('Push Docker Image') {
-            when {
-                expression { env.IS_BETTER == "true" }
-            }
-            steps {
-                script {
-                    docker.withRegistry('', 'dockerhub-creds') {
-                        docker.image("${DOCKER_IMAGE}:${env.BUILD_NUMBER}").push()
-                        docker.image("${DOCKER_IMAGE}:${env.BUILD_NUMBER}").push("latest")
-                    }
-                }
+            docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
+                docker.image("${DOCKER_IMAGE}:${env.BUILD_NUMBER}").push()
+                docker.image("${DOCKER_IMAGE}:${env.BUILD_NUMBER}").push("latest")
             }
         }
     }
 
-    post {
-        always {
-            archiveArtifacts artifacts: 'output/**', fingerprint: true
-        }
+    stage('Archive Artifacts') {
+        archiveArtifacts artifacts: 'output/**', fingerprint: true
     }
 }
