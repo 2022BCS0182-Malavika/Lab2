@@ -1,66 +1,121 @@
-node {
+pipeline {
+    agent any
 
-    def DOCKER_IMAGE = "2022bcs0182malavika/ml-model"
-    def CURRENT_ACCURACY = 0.0
-    def IS_BETTER = false
-
-    stage('Checkout') {
-        checkout scm
+    environment {
+        IMAGE_NAME = "2022bcs0182malavika/2022bcs0182-malavika-wine-quality:v1"
+        CONTAINER_NAME = "wine_test_container"
     }
 
-    stage('Setup Python Virtual Environment') {
-        sh '''
-        python3 -m venv venv
-        . venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        '''
-    }
+    stages {
 
-    stage('Train Model') {
-        sh '''
-        . venv/bin/activate
-        python train.py
-        '''
-    }
-
-    stage('Read Accuracy') {
-        def metrics = readJSON file: 'output/results.json'
-        CURRENT_ACCURACY = metrics.accuracy as Double
-        echo "Current Accuracy: ${CURRENT_ACCURACY}"
-    }
-
-    stage('Compare Accuracy') {
-        def baseline = 0.0
-        withCredentials([string(credentialsId: 'best-accuracy', variable: 'BEST_ACC')]) {
-            baseline = BEST_ACC ? (BEST_ACC as Double) : 0.0
+        stage('Pull Docker Image') {
+            steps {
+                echo "Pulling Docker image..."
+                sh "docker pull ${IMAGE_NAME}"
+            }
         }
 
-        echo "Baseline Accuracy: ${baseline}"
-
-        if (CURRENT_ACCURACY > baseline) {
-            IS_BETTER = true
-            echo "New model is better."
-        } else {
-            echo "New model is NOT better."
-        }
-    }
-
-    if (IS_BETTER) {
-
-        stage('Build Docker Image') {
-            docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
+        stage('Remove Old Container If Exists') {
+            steps {
+                echo "Removing old container if exists..."
+                sh "docker rm -f ${CONTAINER_NAME} || true"
+            }
         }
 
-        stage('Push Docker Image') {
-            docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
-                docker.image("${DOCKER_IMAGE}:${env.BUILD_NUMBER}").push()
-                docker.image("${DOCKER_IMAGE}:${env.BUILD_NUMBER}").push("latest")
+        stage('Run Container') {
+            steps {
+                echo "Starting container..."
+                sh """
+                docker run -d \
+                --name ${CONTAINER_NAME} \
+                --network jenkins-net \
+                ${IMAGE_NAME}
+                """
+            }
+        }
+
+        stage('Wait for API to Start') {
+            steps {
+                echo "Waiting for FastAPI service..."
+                sh '''
+                for i in {1..30}
+                do
+                    sleep 2
+                    if curl -s http://wine_test_container:8000/docs > /dev/null
+                    then
+                        echo "API is ready"
+                        exit 0
+                    fi
+                done
+                echo "API did not start in time"
+                exit 1
+                '''
+            }
+        }
+
+        stage('Valid Inference Test') {
+            steps {
+                echo "Testing valid prediction request..."
+
+                sh '''
+                RESPONSE=$(curl -s -X POST http://wine_test_container:8000/predict \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "fixed_acidity": 7.4,
+                  "volatile_acidity": 0.7,
+                  "citric_acid": 0.0,
+                  "residual_sugar": 1.9,
+                  "chlorides": 0.076,
+                  "free_sulfur_dioxide": 11.0,
+                  "total_sulfur_dioxide": 34.0,
+                  "density": 0.9978,
+                  "pH": 3.51,
+                  "sulphates": 0.56,
+                  "alcohol": 9.4
+                }')
+
+                echo "Response: $RESPONSE"
+
+                echo $RESPONSE | grep "wine_quality" || exit 1
+                echo $RESPONSE | grep "name" || exit 1
+                echo $RESPONSE | grep "roll_no" || exit 1
+                '''
+            }
+        }
+
+        stage('Invalid Inference Test') {
+            steps {
+                echo "Testing invalid prediction request..."
+
+                sh '''
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                -X POST http://wine_test_container:8000/predict \
+                -H "Content-Type: application/json" \
+                -d '{"fixed_acidity": 7.4}')
+
+                echo "HTTP Status: $STATUS"
+
+                if [ "$STATUS" -ne 422 ]; then
+                    echo "Invalid request test failed"
+                    exit 1
+                fi
+                '''
+            }
+        }
+
+        stage('Stop and Remove Container') {
+            steps {
+                echo "Stopping container..."
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
             }
         }
     }
 
-    stage('Archive Artifacts') {
-        archiveArtifacts artifacts: 'output/**', fingerprint: true
+    post {
+        always {
+            echo "Final cleanup..."
+            sh "docker rm -f ${CONTAINER_NAME} || true"
+        }
     }
 }
