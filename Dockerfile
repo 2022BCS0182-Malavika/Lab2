@@ -2,9 +2,13 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-
-RUN pip install --default-timeout=200 --no-cache-dir --progress-bar off -r requirements.txt
+RUN pip install --default-timeout=200 --no-cache-dir --progress-bar off \
+    fastapi \
+    uvicorn \
+    pandas \
+    scikit-learn \
+    joblib \
+    numpy
 
 COPY . .
 
